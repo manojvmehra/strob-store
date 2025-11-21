@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart, Sun, Moon } from 'lucide-react';
+import { ShoppingCart, Sun, Moon, User, LogOut } from 'lucide-react';
+import { supabase } from './lib/supabaseClient'; 
 
-// Import our new components
+// Import your components (Make sure these files exist!)
 import { PRODUCTS } from './data/products';
 import TechCanvas from './components/TechCanvas';
 import Marquee from './components/Marquee';
@@ -14,6 +15,35 @@ export default function StrobStore() {
   const [scrolled, setScrolled] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [cart, setCart] = useState([]);
+  
+  // --- AUTH STATE ---
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    // Check active session on load
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    // Listen for auth changes (login/logout)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogin = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google', 
+    });
+    if (error) console.error('Error logging in:', error.message);
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setView('home');
+  };
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
@@ -21,6 +51,7 @@ export default function StrobStore() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Handle browser Back button
   useEffect(() => {
     const handlePopState = () => {
       const params = new URLSearchParams(window.location.search);
@@ -120,6 +151,29 @@ export default function StrobStore() {
                   </span>
                 )}
             </button>
+
+            {/* --- AUTH BUTTON --- */}
+            {user ? (
+              <div className="flex items-center gap-3 pl-4 border-l border-white/10">
+                 <span className="hidden md:block font-mono-tech text-xs text-[#FF4D4D]">
+                    {user.email.split('@')[0]}
+                 </span>
+                 <button onClick={handleLogout} className="p-2 hover:text-red-500 transition-colors" title="Logout">
+                    <LogOut className="h-4 w-4" />
+                 </button>
+              </div>
+            ) : (
+              <button 
+                onClick={handleLogin} 
+                className={`flex items-center gap-2 font-mono-tech text-xs px-4 py-2 border transition-colors ${
+                   isDarkMode 
+                     ? 'border-white/20 hover:bg-white hover:text-black' 
+                     : 'border-black/20 hover:bg-black hover:text-white'
+                }`}
+              >
+                 <User className="h-3 w-3" /> LOGIN
+              </button>
+            )}
           </div>
         </div>
       </nav>
