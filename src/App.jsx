@@ -37,6 +37,23 @@ const DashboardView = ({ user, profile, orders }) => {
         </div>
 
         <div className="grid gap-8">
+          {/* DEBUG SECTION - REMOVE LATER */}
+          <div className="border p-4 rounded-md border-yellow-500/50 bg-yellow-500/10 text-xs font-mono overflow-auto">
+            <h3 className="font-bold text-yellow-500 mb-2">DEBUG INFO</h3>
+            <p>User Email: {user?.email}</p>
+            <p>User ID: {user?.id}</p>
+            <p>Profile Loaded: {profile ? 'YES' : 'NO'}</p>
+            <p>Profile Name: {profile?.full_name || 'N/A'}</p>
+            <details>
+              <summary className="cursor-pointer opacity-50 hover:opacity-100">Raw User Metadata</summary>
+              <pre className="mt-2">{JSON.stringify(user?.user_metadata, null, 2)}</pre>
+            </details>
+            <details>
+              <summary className="cursor-pointer opacity-50 hover:opacity-100">Raw Profile Data</summary>
+              <pre className="mt-2">{JSON.stringify(profile, null, 2)}</pre>
+            </details>
+          </div>
+
           <div className="border p-6 rounded-md border-white/10 bg-white/5">
             <h2 className="font-mono-tech text-xl font-bold mb-6 flex items-center gap-2">
               <Package className="h-5 w-5" /> ORDER HISTORY
