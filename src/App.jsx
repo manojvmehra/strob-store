@@ -76,11 +76,13 @@ export default function StrobStore() {
 
   useEffect(() => {
     // 1. Check Session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
          handleUserSync(session.user);
       }
-    });
+    };
+    checkSession();
 
     // 2. Listen for Auth Changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -301,13 +303,7 @@ export default function StrobStore() {
           </section>
         </>
       ) : view === 'checkout' ? (
-        <CheckoutView 
-          cart={cart} 
-          onRemove={removeFromCart} 
-          onViewProduct={(p) => navigateTo('product', p)}
-          isDarkMode={isDarkMode}
-          total={cartTotal}
-        />
+        <CheckoutView cart={cart} onRemove={removeFromCart} onViewProduct={(p) => navigateTo('product', p)} isDarkMode={isDarkMode} total={cartTotal} />
       ) : view === 'dashboard' ? (
         <DashboardView user={user} profile={profile} orders={orders} />
       ) : (
