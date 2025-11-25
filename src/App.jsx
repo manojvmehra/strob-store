@@ -301,7 +301,13 @@ export default function StrobStore() {
           </section>
         </>
       ) : view === 'checkout' ? (
-        <CheckoutView cart={cart} onRemove={removeFromCart} onViewProduct={(p) => navigateTo('product', p)} isDarkMode={isDarkMode} total={cartTotal} />
+        <CheckoutView 
+          cart={cart} 
+          onRemove={removeFromCart} 
+          onViewProduct={(p) => navigateTo('product', p)}
+          isDarkMode={isDarkMode}
+          total={cartTotal}
+        />
       ) : view === 'dashboard' ? (
         <DashboardView user={user} profile={profile} orders={orders} />
       ) : (
