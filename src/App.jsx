@@ -306,7 +306,8 @@ export default function StrobStore() {
 
     if (!existingProfile) {
       // Create new profile if doesn't exist
-      const { data: newProfile } = await supabase
+      console.log("Creating new profile for:", currentUser.email);
+      const { data: newProfile, error: createError } = await supabase
         .from('profiles')
         .insert([{
           id: currentUser.id,
@@ -316,18 +317,28 @@ export default function StrobStore() {
         }])
         .select()
         .single();
-      setProfile(newProfile);
+
+      if (createError) {
+        console.error("Error creating profile:", createError);
+      } else {
+        setProfile(newProfile);
+      }
     } else {
+      console.log("Found existing profile:", existingProfile);
       setProfile(existingProfile);
     }
 
     // Fetch Orders
-    const { data: userOrders } = await supabase
+    const { data: userOrders, error: ordersError } = await supabase
       .from('orders')
       .select('*')
       .eq('user_id', currentUser.id);
 
-    if (userOrders) setOrders(userOrders);
+    if (ordersError) {
+      console.error('Error fetching orders:', ordersError);
+    } else if (userOrders) {
+      setOrders(userOrders);
+    }
   };
 
   const handleLogin = async () => {
@@ -335,7 +346,7 @@ export default function StrobStore() {
       provider: 'google',
       options: {
         // FORCE REDIRECT TO LIVE SITE
-        redirectTo: 'https://strob-store.vercel.app'
+        redirectTo: window.location.origin
       }
     });
     if (error) console.error('Login error:', error.message);
