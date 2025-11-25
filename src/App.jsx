@@ -22,16 +22,16 @@ const DashboardView = ({ user, profile, orders }) => {
                    <img src={profile.avatar_url} alt="Profile" className="h-full w-full object-cover" />
                  ) : (
                    <div className="h-full w-full flex items-center justify-center text-2xl font-bold text-white">
-                      {profile?.full_name?.[0] || user.email[0].toUpperCase()}
+                      {profile?.full_name?.[0] || user?.email[0].toUpperCase()}
                    </div>
                  )}
               </div>
            </div>
            <div>
               <h1 className="font-mono-tech text-3xl font-bold uppercase">
-                 Hi, {profile?.full_name || user.email.split('@')[0]}
+                 Hi, {profile?.full_name || user?.email.split('@')[0]}
               </h1>
-              <p className="font-mono-tech text-sm opacity-50">{user.email}</p>
+              <p className="font-mono-tech text-sm opacity-50">{user?.email}</p>
            </div>
         </div>
 
@@ -75,17 +75,19 @@ export default function StrobStore() {
   const [orders, setOrders] = useState([]);
 
   useEffect(() => {
-    // 1. Check Session
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+    // 1. Get Session
+    supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
          handleUserSync(session.user);
+         // Clear hash from URL after successful login to clean up
+         if (window.location.hash && window.location.hash.includes('access_token')) {
+            window.history.replaceState(null, null, window.location.pathname);
+         }
       }
-    };
-    checkSession();
+    });
 
     // 2. Listen for Auth Changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
          handleUserSync(session.user);
       } else {
@@ -138,7 +140,6 @@ export default function StrobStore() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        // FORCE REDIRECT TO LIVE SITE
         redirectTo: 'https://strob-store.vercel.app' 
       }
     });
