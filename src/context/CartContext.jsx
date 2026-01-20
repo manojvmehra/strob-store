@@ -51,13 +51,14 @@ export const CartProvider = ({ children }) => {
             if (user) {
                 const newCart = await cartService.addToUserCart(user.id, product);
                 setCart(newCart);
+                // alert("Added to account cart!"); // Optional debug success
             } else {
                 const newCart = cartService.addToGuestCart(product);
                 setCart(newCart);
             }
         } catch (err) {
             console.error("Add to cart failed:", err);
-            // Optionally show toast/error
+            alert(`Failed to add to cart: ${err.message || "Unknown error"}. Check console for details.`);
         }
     };
 

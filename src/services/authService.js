@@ -71,8 +71,19 @@ export const authService = {
     },
 
     async logout() {
-        const { error } = await supabase.auth.signOut();
-        if (error) throw error;
+        try {
+            const { error } = await supabase.auth.signOut();
+            if (error) throw error;
+        } catch (err) {
+            console.error("Supabase signOut failed, forcing local clear:", err);
+        } finally {
+            // Force clear Supabase local storage tokens
+            Object.keys(localStorage).forEach(key => {
+                if (key.startsWith('sb-')) {
+                    localStorage.removeItem(key);
+                }
+            });
+        }
     },
 
     async resetPasswordForEmail(email) {
