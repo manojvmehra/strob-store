@@ -83,7 +83,16 @@ export const AuthProvider = ({ children }) => {
     const signInWithGoogle = async () => authService.loginWithGoogle();
     const signInWithEmail = async (email, password) => authService.login(email, password);
     const signUpWithEmail = async (email, password, fullName) => authService.register(email, password, fullName);
-    const signOut = async () => authService.logout();
+    const signOut = async () => {
+        try {
+            await authService.logout();
+        } catch (error) {
+            console.error("Logout error:", error);
+        } finally {
+            setUser(null);
+            setProfile(null);
+        }
+    };
 
     const value = {
         user,
