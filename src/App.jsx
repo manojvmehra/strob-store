@@ -124,11 +124,8 @@ const ProductView = ({ product, onBack, onAddToCart, onProductClick, isDarkMode 
   const prevImage = () => setCurrentImageIndex((prev) => (prev - 1 + galleryImages.length) % galleryImages.length);
 
   return (
-    <div className={`min-h-screen pt-28 pb-12 transition-colors duration-300 ${isDarkMode ? 'bg-[#0e0e10] text-white' : 'bg-[#f4f4f5] text-black'}`}>
+    <div className={`min-h-screen pt-24 pb-12 transition-colors duration-300 ${isDarkMode ? 'bg-[#0e0e10] text-white' : 'bg-[#f4f4f5] text-black'}`}>
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
-        <button onClick={onBack} className={`font-mono-tech group mb-8 flex items-center gap-2 text-xs uppercase tracking-widest transition-colors ${isDarkMode ? 'text-white/50 hover:text-white' : 'text-black/50 hover:text-black'}`}>
-          <ChevronLeft className="h-3 w-3" /> BACK
-        </button>
 
         <div className={`grid grid-cols-1 lg:grid-cols-12 gap-8 border rounded-xl overflow-hidden ${isDarkMode ? 'border-white/10 bg-white/5' : 'border-black/10 bg-white shadow-sm'}`}>
           <div className="lg:col-span-7 relative bg-black/5 h-[500px] lg:h-[600px] flex items-center justify-center p-8 group">

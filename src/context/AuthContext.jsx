@@ -13,6 +13,14 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         let mounted = true;
 
+        // Safety timeout to prevent infinite loading
+        const timer = setTimeout(() => {
+            if (mounted && loading) {
+                console.warn("Auth check timed out, forcing app load");
+                setLoading(false);
+            }
+        }, 5000);
+
         const initAuth = async () => {
             try {
                 // 1. Get Session
@@ -46,6 +54,7 @@ export const AuthProvider = ({ children }) => {
 
         return () => {
             mounted = false;
+            clearTimeout(timer);
             subscription.unsubscribe();
         };
     }, []);
