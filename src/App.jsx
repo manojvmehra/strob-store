@@ -1,18 +1,34 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { ShoppingCart, Sun, Moon, Trash2, ChevronLeft, User, LogOut, Package, Settings, ChevronRight, Star } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ShoppingCart, Sun, Moon, LogOut, Package, ChevronLeft, User, ChevronRight, Star } from 'lucide-react';
 import { supabase } from './lib/supabaseClient';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
 // --- IMPORT DATA & COMPONENTS ---
-// Make sure you have created these files as discussed!
 import { PRODUCTS } from './data/products';
 import TechCanvas from './components/TechCanvas';
 import Marquee from './components/Marquee';
 import CheckoutView from './components/CheckoutView';
-// ProductView is now defined inline below, replacing the import
-// import ProductView from './components/ProductView'; 
+import Login from './components/Login';
+import { CartProvider, useCart } from './context/CartContext';
 
-// --- DASHBOARD COMPONENT (NEW) ---
-const DashboardView = ({ user, profile, orders }) => {
+// --- DASHBOARD COMPONENT ---
+const DashboardView = () => {
+  const { user, profile } = useAuth();
+  const [orders, setOrders] = useState([]);
+
+  useEffect(() => {
+    if (user) {
+      const fetchOrders = async () => {
+        const { data, error } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('user_id', user.id);
+        if (data) setOrders(data);
+      };
+      fetchOrders();
+    }
+  }, [user]);
+
   return (
     <div className="min-h-screen pt-28 pb-12 px-6">
       <div className="mx-auto max-w-4xl">
@@ -23,37 +39,20 @@ const DashboardView = ({ user, profile, orders }) => {
                 <img src={profile.avatar_url} alt="Profile" className="h-full w-full object-cover" />
               ) : (
                 <div className="h-full w-full flex items-center justify-center text-2xl font-bold text-white">
-                  {profile?.full_name?.[0] || user.email[0].toUpperCase()}
+                  {profile?.full_name?.[0] || user?.email?.[0]?.toUpperCase()}
                 </div>
               )}
             </div>
           </div>
           <div>
             <h1 className="font-mono-tech text-3xl font-bold uppercase">
-              Hi, {profile?.full_name || user.email.split('@')[0]}
+              Hi, {profile?.full_name || user?.email?.split('@')[0]}
             </h1>
-            <p className="font-mono-tech text-sm opacity-50">{user.email}</p>
+            <p className="font-mono-tech text-sm opacity-50">{user?.email}</p>
           </div>
         </div>
 
         <div className="grid gap-8">
-          {/* DEBUG SECTION - REMOVE LATER */}
-          <div className="border p-4 rounded-md border-yellow-500/50 bg-yellow-500/10 text-xs font-mono overflow-auto">
-            <h3 className="font-bold text-yellow-500 mb-2">DEBUG INFO</h3>
-            <p>User Email: {user?.email}</p>
-            <p>User ID: {user?.id}</p>
-            <p>Profile Loaded: {profile ? 'YES' : 'NO'}</p>
-            <p>Profile Name: {profile?.full_name || 'N/A'}</p>
-            <details>
-              <summary className="cursor-pointer opacity-50 hover:opacity-100">Raw User Metadata</summary>
-              <pre className="mt-2">{JSON.stringify(user?.user_metadata, null, 2)}</pre>
-            </details>
-            <details>
-              <summary className="cursor-pointer opacity-50 hover:opacity-100">Raw Profile Data</summary>
-              <pre className="mt-2">{JSON.stringify(profile, null, 2)}</pre>
-            </details>
-          </div>
-
           <div className="border p-6 rounded-md border-white/10 bg-white/5">
             <h2 className="font-mono-tech text-xl font-bold mb-6 flex items-center gap-2">
               <Package className="h-5 w-5" /> ORDER HISTORY
@@ -114,151 +113,78 @@ const ReviewsSection = ({ isDarkMode }) => {
   );
 };
 
-// --- UPDATED PRODUCT VIEW ---
+// --- PRODUCT VIEW ---
 const ProductView = ({ product, onBack, onAddToCart, onProductClick, isDarkMode }) => {
   if (!product) return null;
   const relatedProducts = PRODUCTS.filter(p => p.id !== product.id).slice(0, 3);
-
-  // Mock additional images for gallery (In a real app, these would come from the product object)
   const galleryImages = [product.image, product.image, product.image];
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  const nextImage = () => {
-    setCurrentImageIndex((prev) => (prev + 1) % galleryImages.length);
-  };
-
-  const prevImage = () => {
-    setCurrentImageIndex((prev) => (prev - 1 + galleryImages.length) % galleryImages.length);
-  };
+  const nextImage = () => setCurrentImageIndex((prev) => (prev + 1) % galleryImages.length);
+  const prevImage = () => setCurrentImageIndex((prev) => (prev - 1 + galleryImages.length) % galleryImages.length);
 
   return (
-    <div className={`min-h-screen pt-28 pb-12 transition-colors duration-300 ${isDarkMode ? 'bg-[#0e0e10] text-white' : 'bg-[#f4f4f5] text-black'
-      }`}>
+    <div className={`min-h-screen pt-28 pb-12 transition-colors duration-300 ${isDarkMode ? 'bg-[#0e0e10] text-white' : 'bg-[#f4f4f5] text-black'}`}>
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
-
-        <button
-          onClick={onBack}
-          className={`font-mono-tech group mb-8 flex items-center gap-2 text-xs uppercase tracking-widest transition-colors ${isDarkMode ? 'text-white/50 hover:text-white' : 'text-black/50 hover:text-black'
-            }`}
-        >
-          <ChevronLeft className="h-3 w-3" />
-          BACK
+        <button onClick={onBack} className={`font-mono-tech group mb-8 flex items-center gap-2 text-xs uppercase tracking-widest transition-colors ${isDarkMode ? 'text-white/50 hover:text-white' : 'text-black/50 hover:text-black'}`}>
+          <ChevronLeft className="h-3 w-3" /> BACK
         </button>
 
-        {/* MAIN PRODUCT LAYOUT - FULL WIDTH CARD */}
-        <div className={`grid grid-cols-1 lg:grid-cols-12 gap-8 border rounded-xl overflow-hidden ${isDarkMode ? 'border-white/10 bg-white/5' : 'border-black/10 bg-white shadow-sm'
-          }`}>
-
-          {/* Left: Gallery (Span 7 cols) */}
+        <div className={`grid grid-cols-1 lg:grid-cols-12 gap-8 border rounded-xl overflow-hidden ${isDarkMode ? 'border-white/10 bg-white/5' : 'border-black/10 bg-white shadow-sm'}`}>
           <div className="lg:col-span-7 relative bg-black/5 h-[500px] lg:h-[600px] flex items-center justify-center p-8 group">
-            <img
-              src={galleryImages[currentImageIndex]}
-              alt={product.title}
-              className="max-h-full max-w-full object-contain drop-shadow-2xl transition-transform duration-500"
-            />
-
-            {/* Navigation Arrows */}
-            <button onClick={prevImage} className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80">
-              <ChevronLeft className="h-6 w-6" />
-            </button>
-            <button onClick={nextImage} className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80">
-              <ChevronRight className="h-6 w-6" />
-            </button>
-
-            {/* Dots */}
+            <img src={galleryImages[currentImageIndex]} alt={product.title} className="max-h-full max-w-full object-contain drop-shadow-2xl transition-transform duration-500" />
+            <button onClick={prevImage} className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80"><ChevronLeft className="h-6 w-6" /></button>
+            <button onClick={nextImage} className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80"><ChevronRight className="h-6 w-6" /></button>
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
               {galleryImages.map((_, idx) => (
-                <div
-                  key={idx}
-                  className={`h-2 w-2 rounded-full transition-all ${currentImageIndex === idx ? 'bg-[#FF4D4D] w-4' : 'bg-white/30'
-                    }`}
-                />
+                <div key={idx} className={`h-2 w-2 rounded-full transition-all ${currentImageIndex === idx ? 'bg-[#FF4D4D] w-4' : 'bg-white/30'}`} />
               ))}
             </div>
           </div>
 
-          {/* Right: Details (Span 5 cols) */}
           <div className="lg:col-span-5 p-8 flex flex-col h-full">
             <div className="flex-1">
               <div className="flex items-center justify-between mb-6">
-                <span className={`font-mono-tech px-2 py-0.5 text-xs font-bold uppercase ${isDarkMode ? 'bg-white text-black' : 'bg-black text-white'
-                  }`}>
-                  {product.category}
-                </span>
-                <div className={`font-mono-tech text-xs ${isDarkMode ? 'text-white/50' : 'text-black/50'}`}>
-                  ID: {product.id}_ASSET
-                </div>
+                <span className={`font-mono-tech px-2 py-0.5 text-xs font-bold uppercase ${isDarkMode ? 'bg-white text-black' : 'bg-black text-white'}`}>{product.category}</span>
+                <div className={`font-mono-tech text-xs ${isDarkMode ? 'text-white/50' : 'text-black/50'}`}>ID: {product.id}_ASSET</div>
               </div>
-
               <h1 className="font-mono-tech text-4xl lg:text-5xl font-bold uppercase leading-none tracking-tight mb-6">{product.title}</h1>
-
               <div className="flex items-center gap-2 mb-8">
                 <div className="flex text-[#FF4D4D]">
-                  <Star className="h-4 w-4 fill-current" />
-                  <Star className="h-4 w-4 fill-current" />
-                  <Star className="h-4 w-4 fill-current" />
-                  <Star className="h-4 w-4 fill-current" />
-                  <Star className="h-4 w-4 fill-current" />
+                  {[...Array(5)].map((_, i) => <Star key={i} className="h-4 w-4 fill-current" />)}
                 </div>
                 <span className="text-xs opacity-50">(24 Reviews)</span>
               </div>
-
-              <p className={`text-lg leading-relaxed font-light mb-8 ${isDarkMode ? 'text-white/70' : 'text-black/70'}`}>
-                {product.description}
-              </p>
-
+              <p className={`text-lg leading-relaxed font-light mb-8 ${isDarkMode ? 'text-white/70' : 'text-black/70'}`}>{product.description}</p>
               <div className="grid grid-cols-2 gap-4 mb-10">
                 {product.features.map((feat, i) => (
-                  <div key={i} className={`flex items-center gap-3 text-xs font-mono-tech ${isDarkMode ? 'text-white/80' : 'text-black/80'
-                    }`}>
+                  <div key={i} className={`flex items-center gap-3 text-xs font-mono-tech ${isDarkMode ? 'text-white/80' : 'text-black/80'}`}>
                     <div className={`h-1.5 w-1.5 rounded-full ${isDarkMode ? 'bg-[#FF4D4D]' : 'bg-black'}`}></div>
                     {feat}
                   </div>
                 ))}
               </div>
             </div>
-
             <div className="border-t pt-8 mt-auto">
               <div className="flex items-center justify-between mb-6">
                 <span className="font-mono-tech text-sm opacity-50">TOTAL PRICE</span>
                 <span className="font-mono-tech text-4xl font-bold">${product.price}</span>
               </div>
-              <button
-                onClick={() => onAddToCart(product)}
-                className="btn-industrial w-full flex items-center justify-center gap-3 bg-[#FF4D4D] hover:bg-[#ff3333] py-5 text-sm text-black font-bold transition-all active:scale-95 shadow-lg shadow-red-500/20"
-              >
-                ADD TO CART
-              </button>
+              <button onClick={() => onAddToCart(product)} className="btn-industrial w-full flex items-center justify-center gap-3 bg-[#FF4D4D] hover:bg-[#ff3333] py-5 text-sm text-black font-bold transition-all active:scale-95 shadow-lg shadow-red-500/20">ADD TO CART</button>
             </div>
           </div>
         </div>
-
-        {/* REVIEWS SECTION */}
         <ReviewsSection isDarkMode={isDarkMode} />
-
-        {/* RELATED PRODUCTS SECTION */}
         <div className="mt-32">
           <div className={`flex items-center gap-4 mb-8 border-b pb-4 ${isDarkMode ? 'border-white/10' : 'border-black/10'}`}>
             <h2 className="font-mono-tech text-xl font-bold uppercase">Deploy_Other_Systems</h2>
             <div className={`h-px flex-1 ${isDarkMode ? 'bg-white/10' : 'bg-black/10'}`}></div>
           </div>
-
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
             {relatedProducts.map((item) => (
-              <div
-                key={item.id}
-                onClick={() => onProductClick(item)}
-                className={`group cursor-pointer border p-0 transition-colors duration-300 rounded-md overflow-hidden ${isDarkMode
-                  ? 'border-white/10 bg-white/5 hover:border-white'
-                  : 'border-black bg-white hover:border-black'
-                  }`}
-              >
+              <div key={item.id} onClick={() => onProductClick(item)} className={`group cursor-pointer border p-0 transition-colors duration-300 rounded-md overflow-hidden ${isDarkMode ? 'border-white/10 bg-white/5 hover:border-white' : 'border-black bg-white hover:border-black'}`}>
                 <div className="aspect-[4/3] w-full overflow-hidden relative">
-                  <img
-                    src={item.image}
-                    alt={item.title}
-                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
+                  <img src={item.image} alt={item.title} className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
                 </div>
                 <div className="p-4">
                   <div className="flex justify-between items-start">
@@ -277,104 +203,24 @@ const ProductView = ({ product, onBack, onAddToCart, onProductClick, isDarkMode 
   );
 };
 
-export default function StrobStore() {
+
+
+// ... (other imports remain)
+
+// --- DASHBOARD COMPONENT ---
+// ... (DashboardView remains same)
+
+// ... (ReviewsSection remains same)
+
+// ... (ProductView remains same)
+
+function StrobStoreContent() {
+  const { user, profile, signOut } = useAuth();
+  const { cart, addToCart, removeFromCart, total: cartTotal } = useCart();
   const [view, setView] = useState('home');
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [scrolled, setScrolled] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
-  const [cart, setCart] = useState([]);
-
-  // --- AUTH & DATA STATE ---
-  const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [orders, setOrders] = useState([]);
-
-  useEffect(() => {
-    // 1. Check Session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        handleUserSync(session.user);
-      }
-    });
-
-    // 2. Listen for Auth Changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        handleUserSync(session.user);
-      } else {
-        setUser(null);
-        setProfile(null);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  // --- SYNC USER TO DATABASE ---
-  const handleUserSync = async (currentUser) => {
-    setUser(currentUser);
-
-    // Check if profile exists
-    let { data: existingProfile, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', currentUser.id)
-      .single();
-
-    if (!existingProfile) {
-      // Create new profile if doesn't exist
-      console.log("Creating new profile for:", currentUser.email);
-      const { data: newProfile, error: createError } = await supabase
-        .from('profiles')
-        .insert([{
-          id: currentUser.id,
-          email: currentUser.email,
-          full_name: currentUser.user_metadata.full_name || currentUser.email.split('@')[0],
-          avatar_url: currentUser.user_metadata.avatar_url
-        }])
-        .select()
-        .single();
-
-      if (createError) {
-        console.error("Error creating profile:", createError);
-      } else {
-        setProfile(newProfile);
-      }
-    } else {
-      console.log("Found existing profile:", existingProfile);
-      setProfile(existingProfile);
-    }
-
-    // Fetch Orders
-    const { data: userOrders, error: ordersError } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('user_id', currentUser.id);
-
-    if (ordersError) {
-      console.error('Error fetching orders:', ordersError);
-    } else if (userOrders) {
-      setOrders(userOrders);
-    }
-  };
-
-  const handleLogin = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        // FORCE REDIRECT TO LIVE SITE
-        redirectTo: window.location.origin
-      }
-    });
-    if (error) console.error('Login error:', error.message);
-  };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setView('home');
-    setUser(null);
-    setProfile(null);
-  };
 
   // --- NAVIGATION ---
   useEffect(() => {
@@ -391,6 +237,7 @@ export default function StrobStore() {
 
       if (page === 'checkout') setView('checkout');
       else if (page === 'dashboard') setView('dashboard');
+      else if (page === 'auth') setView('auth');
       else if (productId) {
         const product = PRODUCTS.find(p => p.id === parseInt(productId));
         if (product) { setSelectedProduct(product); setView('product'); }
@@ -407,6 +254,7 @@ export default function StrobStore() {
     if (viewName === 'product' && param) url = `?product=${param.id}`;
     if (viewName === 'checkout') url = `?page=checkout`;
     if (viewName === 'dashboard') url = `?page=dashboard`;
+    if (viewName === 'auth') url = `?page=auth`;
 
     window.history.pushState({}, "", url);
     if (viewName === 'product') setSelectedProduct(param);
@@ -414,18 +262,25 @@ export default function StrobStore() {
     window.scrollTo(0, 0);
   };
 
-  const addToCart = (product) => setCart([...cart, product]);
-  const removeFromCart = (index) => setCart(cart.filter((_, i) => i !== index));
-  const cartTotal = cart.reduce((sum, item) => sum + item.price, 0);
+  const handleAddToCart = (product) => {
+    // NOTE: Original logic forced login. New requirements say Guest Cart is allowed.
+    // So we just add to cart. Auth is optional.
+    addToCart(product);
+  };
+
   const toggleTheme = () => setIsDarkMode(!isDarkMode);
   const goHome = () => { if (view !== 'home') window.history.back(); };
 
-  return (
-    <div className={`min-h-screen font-sans transition-colors duration-300 selection:bg-[#FF4D4D] selection:text-black ${isDarkMode ? 'bg-[#0e0e10] text-white' : 'bg-[#f4f4f5] text-black'
-      }`}>
+  const handleLogout = async () => {
+    console.log("Logout button clicked");
+    await signOut();
+    console.log("SignOut completed, reloading");
+    window.location.href = '/';
+  };
 
-      <nav className={`fixed top-0 z-50 w-full transition-all duration-300 border-b ${scrolled ? (isDarkMode ? 'bg-[#0e0e10]/90 backdrop-blur-md border-white/10' : 'bg-[#f4f4f5]/90 border-black/10') : 'bg-transparent border-transparent'
-        }`}>
+  return (
+    <div className={`min-h-screen font-sans transition-colors duration-300 selection:bg-[#FF4D4D] selection:text-black ${isDarkMode ? 'bg-[#0e0e10] text-white' : 'bg-[#f4f4f5] text-black'}`}>
+      <nav className={`fixed top-0 z-50 w-full transition-all duration-300 border-b ${scrolled ? (isDarkMode ? 'bg-[#0e0e10]/90 backdrop-blur-md border-white/10' : 'bg-[#f4f4f5]/90 border-black/10') : 'bg-transparent border-transparent'}`}>
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <div onClick={() => navigateTo('home')} className="flex cursor-pointer items-center gap-3">
             <div className={`h-4 w-4 ${isDarkMode ? 'bg-white' : 'bg-black'}`} />
@@ -434,8 +289,7 @@ export default function StrobStore() {
 
           <div className="hidden items-center gap-8 md:flex">
             {['INDEX', 'PACKS', 'SYSTEM', 'LOGS'].map((link) => (
-              <button key={link} onClick={() => navigateTo('home')} className={`font-mono-tech text-xs transition-colors hover:underline decoration-1 underline-offset-4 ${isDarkMode ? 'text-white/60 hover:text-white' : 'text-black/60 hover:text-black'
-                }`}>
+              <button key={link} onClick={() => navigateTo('home')} className={`font-mono-tech text-xs transition-colors hover:underline decoration-1 underline-offset-4 ${isDarkMode ? 'text-white/60 hover:text-white' : 'text-black/60 hover:text-black'}`}>
                 {link}
               </button>
             ))}
@@ -468,7 +322,7 @@ export default function StrobStore() {
                 </button>
               </div>
             ) : (
-              <button onClick={handleLogin} className={`flex items-center gap-2 font-mono-tech text-xs px-4 py-2 border transition-colors ${isDarkMode ? 'border-white/20 hover:bg-white hover:text-black' : 'border-black/20 hover:bg-black hover:text-white'}`}>
+              <button onClick={() => navigateTo('auth')} className={`flex items-center gap-2 font-mono-tech text-xs px-4 py-2 border transition-colors ${isDarkMode ? 'border-white/20 hover:bg-white hover:text-black' : 'border-black/20 hover:bg-black hover:text-white'}`}>
                 <User className="h-3 w-3" /> LOGIN
               </button>
             )}
@@ -495,7 +349,7 @@ export default function StrobStore() {
             <div className="absolute bottom-0 left-0 w-full px-6 pb-4 flex items-end justify-between z-10">
               <h2 className={`font-mono-tech text-sm uppercase ${isDarkMode ? 'text-white/50' : 'text-black/50'}`}>Recent_Uploads</h2>
               <div className={`h-px flex-1 mx-4 mb-1 ${isDarkMode ? 'bg-white/10' : 'bg-black/10'}`}></div>
-              <button onClick={() => window.scrollTo({ top: window.innerHeight, behavior: 'smooth' })} className={`font-mono-tech text-xs cursor-pointer hover:text-[#FF4D4D] transition-colors ${isDarkMode ? 'text-white/30' : 'text-black/30'}`}>SCROLL >>> </button>
+              <button onClick={() => window.scrollTo({ top: window.innerHeight, behavior: 'smooth' })} className={`font-mono-tech text-xs cursor-pointer hover:text-[#FF4D4D] transition-colors ${isDarkMode ? 'text-white/30' : 'text-black/30'}`}>SCROLL {">>>"} </button>
             </div>
           </section>
           <div className="mt-0"><Marquee items={PRODUCTS} onProductClick={(p) => navigateTo('product', p)} isDarkMode={isDarkMode} /></div>
@@ -526,10 +380,22 @@ export default function StrobStore() {
       ) : view === 'checkout' ? (
         <CheckoutView cart={cart} onRemove={removeFromCart} onViewProduct={(p) => navigateTo('product', p)} isDarkMode={isDarkMode} total={cartTotal} />
       ) : view === 'dashboard' ? (
-        <DashboardView user={user} profile={profile} orders={orders} />
+        <DashboardView />
+      ) : view === 'auth' ? (
+        <Login onLoginSuccess={() => navigateTo('home')} isDarkMode={isDarkMode} />
       ) : (
-        <ProductView product={selectedProduct} onBack={goHome} onAddToCart={addToCart} onProductClick={(p) => navigateTo('product', p)} isDarkMode={isDarkMode} />
+        <ProductView product={selectedProduct} onBack={goHome} onAddToCart={handleAddToCart} onProductClick={(p) => navigateTo('product', p)} isDarkMode={isDarkMode} />
       )}
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <CartProvider>
+        <StrobStoreContent />
+      </CartProvider>
+    </AuthProvider>
   );
 }
