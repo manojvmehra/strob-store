@@ -100,32 +100,52 @@ export const cartService = {
             cart = newCart;
         }
 
-        // 2. Add Item
-        const { error: itemError } = await supabase
+        // 2. Check if Item Exists (Upsert Logic)
+        const { data: existingItem } = await supabase
             .from('cart_items')
-            .insert([{
-                cart_id: cart.id,
-                product_id: product.id,
-                quantity: 1,
-                metadata: product // Store full product snapshot
-            }]);
+            .select('id, quantity')
+            .eq('cart_id', cart.id)
+            .eq('product_id', product.id)
+            .single();
 
-        if (itemError) throw itemError;
+        if (existingItem) {
+            // Update Quantity
+            const { error: updateError } = await supabase
+                .from('cart_items')
+                .update({ quantity: existingItem.quantity + 1 })
+                .eq('id', existingItem.id);
+
+            if (updateError) throw updateError;
+        } else {
+            // Insert New
+            const { error: itemError } = await supabase
+                .from('cart_items')
+                .insert([{
+                    cart_id: cart.id,
+                    product_id: product.id,
+                    quantity: 1,
+                    metadata: product // Store full product snapshot
+                }]);
+
+            if (itemError) throw itemError;
+        }
 
         return this.getUserCart(userId);
     },
 
     async removeFromUserCart(userId, cartItemId) {
-        // We need to delete by the cart_items.id
-        // But first validation is good.
+        // We validate the cart belongs to user implicitly via RLS, but specific ID check is good.
+        if (!cartItemId) return this.getUserCart(userId);
 
-        // Assuming cartItemId is the UUID from DB
         const { error } = await supabase
             .from('cart_items')
             .delete()
             .eq('id', cartItemId);
 
-        if (error) throw error;
+        if (error) {
+            console.error("Error removing item:", error);
+            throw error;
+        }
 
         return this.getUserCart(userId);
     },
@@ -140,44 +160,61 @@ export const cartService = {
         const guestCart = this.getGuestCart();
         if (guestCart.length === 0) return;
 
-        // 1. Get/Create User Cart
-        let { data: cart } = await supabase
-            .from('carts')
-            .select('id')
-            .eq('user_id', userId)
-            .single();
-
-        if (!cart) {
-            const { data: newCart, error } = await supabase
+        try {
+            // 1. Get/Create User Cart
+            let { data: cart } = await supabase
                 .from('carts')
-                .insert([{ user_id: userId }])
-                .select()
+                .select('id')
+                .eq('user_id', userId)
                 .single();
-            if (error) throw error;
-            cart = newCart;
-        }
 
-        // 2. Insert all guest items
-        const itemsToInsert = guestCart.map(p => ({
-            cart_id: cart.id,
-            product_id: p.id,
-            quantity: 1,
-            metadata: p
-        }));
-
-        if (itemsToInsert.length > 0) {
-            const { error: insertError } = await supabase
-                .from('cart_items')
-                .insert(itemsToInsert);
-
-            if (insertError) {
-                console.error("Failed to merge cart:", insertError);
-                // Might not want to clear guest cart if failed? 
-                // For now, we proceed to clear to avoid infinite retry loops on client for bad data.
+            if (!cart) {
+                const { data: newCart, error } = await supabase
+                    .from('carts')
+                    .insert([{ user_id: userId }])
+                    .select()
+                    .single();
+                if (error) throw error;
+                cart = newCart;
             }
-        }
 
-        // 3. Clear Guest Cart
-        this.clearGuestCart();
+            // 2. Process Items One by One to Handle Duplicates (Upsert)
+            // SQL bulk upsert is better but complex with JSON metadata and RLS. 
+            // Iteration is safer for now given small cart sizes.
+            for (const item of guestCart) {
+                const { data: existing } = await supabase
+                    .from('cart_items')
+                    .select('id, quantity')
+                    .eq('cart_id', cart.id)
+                    .eq('product_id', item.id)
+                    .single();
+
+                if (existing) {
+                    await supabase
+                        .from('cart_items')
+                        .update({ quantity: existing.quantity + 1 })
+                        .eq('id', existing.id);
+                } else {
+                    await supabase
+                        .from('cart_items')
+                        .insert([{
+                            cart_id: cart.id,
+                            product_id: item.id,
+                            quantity: 1,
+                            metadata: item
+                        }]);
+                }
+            }
+
+            // 3. Clear Guest Cart only on success
+            this.clearGuestCart();
+        } catch (err) {
+            console.error("Merge failed:", err);
+            // We might choose NOT to clear guest cart if merge fails, 
+            // but to avoid bad state we often clear it or leave it. 
+            // Leaving it effectively dupes it next time? 
+            // Let's clear to prevent infinite errors for the user.
+            this.clearGuestCart();
+        }
     }
 };

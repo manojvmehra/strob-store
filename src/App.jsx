@@ -269,10 +269,12 @@ function StrobStoreContent() {
   const goHome = () => { if (view !== 'home') window.history.back(); };
 
   const handleLogout = async () => {
-    console.log("Logout button clicked");
+    // Context now handles the cleanup and state reset + timeouts
     await signOut();
-    console.log("SignOut completed, reloading");
-    window.location.href = '/';
+    // Optional: Redirect to home or refresh if strictly needed, 
+    // but context setting user to null should trigger UI update.
+    // We'll navigate home to be sure.
+    navigateTo('home');
   };
 
   return (

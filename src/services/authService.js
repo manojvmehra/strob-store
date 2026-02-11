@@ -72,17 +72,27 @@ export const authService = {
 
     async logout() {
         try {
-            const { error } = await supabase.auth.signOut();
+            // Attempt Supabase sign out with a small timeout to prevent hanging
+            const { error } = await Promise.race([
+                supabase.auth.signOut(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('SignOut Timed Out')), 2000))
+            ]);
+
             if (error) throw error;
         } catch (err) {
-            console.error("Supabase signOut failed, forcing local clear:", err);
+            console.warn("Supabase signOut issue (forcing local clear):", err);
         } finally {
-            // Force clear Supabase local storage tokens
+            // Force clear ALL Supabase tokens and app state
             Object.keys(localStorage).forEach(key => {
-                if (key.startsWith('sb-')) {
+                if (key.startsWith('sb-') || key.startsWith('strob_')) {
                     localStorage.removeItem(key);
                 }
             });
+            // Also clear our specific guest cart if we want to be thorough, 
+            // though typically we might want to keep it? 
+            // The requirement says "Logout must completely clear session". 
+            // Let's clear guest cart key too just in case it confuses state.
+            localStorage.removeItem('strob_guest_cart');
         }
     },
 
