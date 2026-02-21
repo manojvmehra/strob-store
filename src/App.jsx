@@ -348,8 +348,6 @@ function StrobStoreContent() {
             </div>
             <div className="absolute bottom-0 left-0 w-full px-6 pb-4 flex items-end justify-between z-10">
               <h2 className={`font-mono-tech text-sm uppercase ${isDarkMode ? 'text-white/50' : 'text-black/50'}`}>Recent_Uploads</h2>
-              <div className={`h-px flex-1 mx-4 mb-1 ${isDarkMode ? 'bg-white/10' : 'bg-black/10'}`}></div>
-              <button onClick={() => window.scrollTo({ top: window.innerHeight, behavior: 'smooth' })} className={`font-mono-tech text-xs cursor-pointer hover:text-[#FF4D4D] transition-colors ${isDarkMode ? 'text-white/30' : 'text-black/30'}`}>SCROLL {">>>"} </button>
             </div>
           </section>
           <div className="mt-0"><Marquee items={PRODUCTS} onProductClick={(p) => navigateTo('product', p)} isDarkMode={isDarkMode} /></div>
