@@ -16,23 +16,19 @@ export const CartProvider = ({ children }) => {
         let mounted = true;
 
         const loadCart = async () => {
-            if (authLoading) return; // Wait for auth to settle
+            if (authLoading) return;
 
             try {
                 if (user) {
-                    // --- LOGGED IN ---
-                    // 1. Merge any existing guest cart first (if we just logged in)
                     await cartService.mergeGuestCart(user.id);
-                    // 2. Fetch remote cart
                     const userCart = await cartService.getUserCart(user.id);
                     if (mounted) setCart(userCart);
                 } else {
-                    // --- GUEST ---
                     const guestCart = cartService.getGuestCart();
                     if (mounted) setCart(guestCart);
                 }
             } catch (err) {
-                console.error("Failed to load cart:", err);
+                console.error("Cart load failed:", err);
             } finally {
                 if (mounted) setLoading(false);
             }

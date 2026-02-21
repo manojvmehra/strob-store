@@ -311,8 +311,9 @@ function StrobStoreContent() {
             {/* --- AUTH AREA --- */}
             {user ? (
               <div className="flex items-center gap-3 pl-4 border-l border-white/10">
-                <button onClick={() => navigateTo('dashboard')} className="hidden md:flex flex-col items-end group">
-                  <span className="font-mono-tech text-xs font-bold group-hover:text-[#FF4D4D] transition-colors">
+                <button onClick={() => navigateTo('dashboard')} className="flex items-center gap-2 group">
+                  <User className="h-4 w-4" />
+                  <span className="hidden md:block font-mono-tech text-xs font-bold group-hover:text-[#FF4D4D] transition-colors">
                     {profile?.full_name || "USER"}
                   </span>
                 </button>

@@ -43,42 +43,56 @@ export const cartService = {
         return newCart;
     },
 
+    // --- HELPERS ---
+
+    async withTimeout(promise, timeoutMs = 8000) {
+        return Promise.race([
+            promise,
+            new Promise((_, reject) => setTimeout(() => reject(new Error('DATABASE_TIMEOUT')), timeoutMs))
+        ]);
+    },
+
     // --- REMOTE (USER) CART ---
 
     async getUserCart(userId) {
-        // 1. Get Cart ID
-        const { data: cartData, error: cartError } = await supabase
-            .from('carts')
-            .select('id')
-            .eq('user_id', userId)
-            .single();
+        try {
+            // 1. Get Cart ID
+            const { data: cartData, error: cartError } = await this.withTimeout(
+                supabase
+                    .from('carts')
+                    .select('id')
+                    .eq('user_id', userId)
+                    .single()
+            );
 
-        if (cartError && cartError.code !== 'PGRST116') { // PGRST116 is 'not found'
-            console.error('Error fetching user cart:', cartError);
+            if (cartError && cartError.code !== 'PGRST116') {
+                return [];
+            }
+
+            if (!cartData) {
+                return []; // No cart yet
+            }
+
+            // 2. Get Items
+            const { data: items, error: itemsError } = await this.withTimeout(
+                supabase
+                    .from('cart_items')
+                    .select('*')
+                    .eq('cart_id', cartData.id)
+            );
+
+            if (itemsError) {
+                return [];
+            }
+
+            // 3. Transform back to product shape provided by metadata
+            return items.map(item => ({
+                ...item.metadata,
+                cartItemId: item.id // Keep DB ID for deletions
+            }));
+        } catch (e) {
             return [];
         }
-
-        if (!cartData) {
-            return []; // No cart yet
-        }
-
-        // 2. Get Items
-        const { data: items, error: itemsError } = await supabase
-            .from('cart_items')
-            .select('*')
-            .eq('cart_id', cartData.id);
-
-        if (itemsError) {
-            console.error('Error fetching cart items:', itemsError);
-            return [];
-        }
-
-        // 3. Transform back to product shape provided by metadata
-        // We assume we stored the product snapshot in metadata
-        return items.map(item => ({
-            ...item.metadata,
-            cartItemId: item.id // Keep DB ID for deletions
-        }));
     },
 
     async addToUserCart(userId, product) {

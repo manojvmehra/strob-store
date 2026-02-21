@@ -104,33 +104,57 @@ export const authService = {
         return data;
     },
 
+    // --- HELPERS ---
+
+    /**
+     * Helper to prevent infinite hangs on Supabase calls
+     */
+    async withTimeout(promise, timeoutMs = 8000) {
+        return Promise.race([
+            promise,
+            new Promise((_, reject) => setTimeout(() => reject(new Error('DATABASE_TIMEOUT')), timeoutMs))
+        ]);
+    },
+
     // --- PROFILE MANAGEMENT ---
 
     async getProfile(userId) {
-        const { data, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', userId)
-            .single();
+        try {
+            const { data, error } = await this.withTimeout(
+                supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', userId)
+                    .single()
+            );
 
-        if (error) return null;
-        return data;
+            if (error) return null;
+            return data;
+        } catch (e) {
+            return null;
+        }
     },
 
     async createProfile(user) {
-        const { data, error } = await supabase
-            .from('profiles')
-            .insert([{
-                id: user.id,
-                email: user.email,
-                full_name: user.user_metadata?.full_name || user.email?.split('@')[0],
-                avatar_url: user.user_metadata?.avatar_url,
-                updated_at: new Date()
-            }])
-            .select()
-            .single();
+        try {
+            const { data, error } = await this.withTimeout(
+                supabase
+                    .from('profiles')
+                    .insert([{
+                        id: user.id,
+                        email: user.email,
+                        full_name: user.user_metadata?.full_name || user.email?.split('@')[0],
+                        avatar_url: user.user_metadata?.avatar_url,
+                        updated_at: new Date()
+                    }])
+                    .select()
+                    .single()
+            );
 
-        if (error) throw error;
-        return data;
+            if (error) throw error;
+            return data;
+        } catch (e) {
+            throw e;
+        }
     }
 };

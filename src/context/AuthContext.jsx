@@ -16,39 +16,22 @@ export const AuthProvider = ({ children }) => {
         // Safety timeout to prevent infinite loading
         const timer = setTimeout(() => {
             if (mounted && loading) {
-                console.warn("Auth check timed out, forcing app load");
+                console.warn("Auth check timed out, forcing app load (12s)");
                 setLoading(false);
             }
-        }, 5000);
+        }, 12000); // 12 Seconds should be plenty even for slow connections or project wakes
 
-        const initAuth = async () => {
-            try {
-                // 1. Get Session
-                const session = await authService.getSession();
-                if (session?.user) {
-                    await handleUserSync(session.user, mounted);
-                } else {
-                    if (mounted) setLoading(false);
-                }
-            } catch (err) {
-                console.error("Auth init failed:", err);
-                if (mounted) setLoading(false);
-            }
-        };
-
-        initAuth();
-
-        // 2. Listen for changes
+        // Listen for changes
+        // NOTE: Supabase onAuthStateChange fires with the current session immediately on subscription.
         const { data: { subscription } } = authService.onAuthStateChange(async (event, session) => {
-            console.log("AUTH CHANGE:", event);
+            if (!mounted) return;
+
             if (session?.user) {
                 await handleUserSync(session.user, mounted);
-            } else if (event === 'SIGNED_OUT') {
-                if (mounted) {
-                    setUser(null);
-                    setProfile(null);
-                    setLoading(false);
-                }
+            } else {
+                setUser(null);
+                setProfile(null);
+                setLoading(false);
             }
         });
 
@@ -64,8 +47,11 @@ export const AuthProvider = ({ children }) => {
 
         try {
             setUser(currentUser);
+            // OPTIMIZATION: Set loading to false as soon as we have the user
+            // This allows the app to render while we fetch the profile in the background.
+            setLoading(false);
 
-            // Get or Create Profile
+            // Get or Create Profile (Background)
             let userProfile = await authService.getProfile(currentUser.id);
 
             if (!userProfile) {
@@ -75,7 +61,6 @@ export const AuthProvider = ({ children }) => {
             if (mounted) setProfile(userProfile);
         } catch (err) {
             console.error("User sync error:", err);
-        } finally {
             if (mounted) setLoading(false);
         }
     };
