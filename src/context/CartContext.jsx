@@ -8,7 +8,12 @@ export const useCart = () => useContext(CartContext);
 
 export const CartProvider = ({ children }) => {
     const { user, loading: authLoading } = useAuth();
-    const [cart, setCart] = useState([]);
+    const [cart, setCart] = useState(() => {
+        // Instant Initial Load from Cache
+        const guest = cartService.getGuestCart();
+        if (guest.length > 0) return guest;
+        return cartService.getUserCartCache();
+    });
     const [loading, setLoading] = useState(true);
 
     // 1. Load Cart on Mount or User Change
@@ -16,20 +21,31 @@ export const CartProvider = ({ children }) => {
         let mounted = true;
 
         const loadCart = async () => {
-            if (authLoading) return;
+            // We don't return early if authLoading is true 
+            // because we want to show cached data immediately.
+            // But we do need to wait for auth to know WHICH user cart to fetch.
 
             try {
+                if (authLoading) return;
+
                 if (user) {
+                    // Start merge in background
                     await cartService.mergeGuestCart(user.id);
+                    // Fetch fresh items (this updates cache too)
                     const userCart = await cartService.getUserCart(user.id);
-                    if (mounted) setCart(userCart);
+                    if (mounted) {
+                        setCart(userCart);
+                        setLoading(false);
+                    }
                 } else {
                     const guestCart = cartService.getGuestCart();
-                    if (mounted) setCart(guestCart);
+                    if (mounted) {
+                        setCart(guestCart);
+                        setLoading(false);
+                    }
                 }
             } catch (err) {
                 console.error("Cart load failed:", err);
-            } finally {
                 if (mounted) setLoading(false);
             }
         };

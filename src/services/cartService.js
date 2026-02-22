@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabaseClient';
 
 const GUEST_CART_KEY = 'strob_guest_cart';
+const USER_CART_CACHE_KEY = 'strob_user_cart_cache';
 
 export const cartService = {
     // --- LOCAL (GUEST) CART ---
@@ -25,10 +26,6 @@ export const cartService = {
 
     addToGuestCart(product) {
         const cart = this.getGuestCart();
-        // Check if exists? For now simplest version: plain push or no dupes?
-        // User code was just [...cart, product] so we will mimic that, but better to prevent simple dupes if desired.
-        // Assuming simple append for now to match current behavior.
-
         // Better: Add unique ID/timestamp to valid 'items' in a cart context
         const newItem = { ...product, cartItemId: Date.now() + Math.random() };
         const newCart = [...cart, newItem];
@@ -41,6 +38,26 @@ export const cartService = {
         const newCart = cart.filter((_, i) => i !== index);
         this.saveGuestCart(newCart);
         return newCart;
+    },
+
+    // --- USER CART CACHE ---
+
+    getUserCartCache() {
+        try {
+            const stored = localStorage.getItem(USER_CART_CACHE_KEY);
+            return stored ? JSON.parse(stored) : [];
+        } catch (e) {
+            console.error("Error reading user cart cache", e);
+            return [];
+        }
+    },
+
+    saveUserCartCache(cart) {
+        localStorage.setItem(USER_CART_CACHE_KEY, JSON.stringify(cart));
+    },
+
+    clearUserCartCache() {
+        localStorage.removeItem(USER_CART_CACHE_KEY);
     },
 
     // --- HELPERS ---
@@ -66,11 +83,12 @@ export const cartService = {
             );
 
             if (cartError && cartError.code !== 'PGRST116') {
-                return [];
+                return this.getUserCartCache(); // Return cache if error
             }
 
             if (!cartData) {
-                return []; // No cart yet
+                this.saveUserCartCache([]);
+                return [];
             }
 
             // 2. Get Items
@@ -82,16 +100,21 @@ export const cartService = {
             );
 
             if (itemsError) {
-                return [];
+                return this.getUserCartCache(); // Return cache if error
             }
 
             // 3. Transform back to product shape provided by metadata
-            return items.map(item => ({
+            const finalCart = items.map(item => ({
                 ...item.metadata,
                 cartItemId: item.id // Keep DB ID for deletions
             }));
+
+            // OPTIMIZATION: Update cache
+            this.saveUserCartCache(finalCart);
+
+            return finalCart;
         } catch (e) {
-            return [];
+            return this.getUserCartCache(); // Return cache on timeout/exception
         }
     },
 
@@ -148,7 +171,6 @@ export const cartService = {
     },
 
     async removeFromUserCart(userId, cartItemId) {
-        // We validate the cart belongs to user implicitly via RLS, but specific ID check is good.
         if (!cartItemId) return this.getUserCart(userId);
 
         const { error } = await supabase
@@ -192,9 +214,7 @@ export const cartService = {
                 cart = newCart;
             }
 
-            // 2. Process Items One by One to Handle Duplicates (Upsert)
-            // SQL bulk upsert is better but complex with JSON metadata and RLS. 
-            // Iteration is safer for now given small cart sizes.
+            // 2. Process Items
             for (const item of guestCart) {
                 const { data: existing } = await supabase
                     .from('cart_items')
@@ -220,14 +240,11 @@ export const cartService = {
                 }
             }
 
-            // 3. Clear Guest Cart only on success
+            // 3. Clear Guest Cart and return fresh user cart to update cache
             this.clearGuestCart();
+            await this.getUserCart(userId);
         } catch (err) {
             console.error("Merge failed:", err);
-            // We might choose NOT to clear guest cart if merge fails, 
-            // but to avoid bad state we often clear it or leave it. 
-            // Leaving it effectively dupes it next time? 
-            // Let's clear to prevent infinite errors for the user.
             this.clearGuestCart();
         }
     }
